@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-
+const bcrypt = require('bcrypt');
 const personSchema = new mongoose.Schema({
     name: {
         type: String,
@@ -28,8 +28,45 @@ const personSchema = new mongoose.Schema({
     salary:{
         type: Number,
         required: true
+    },
+    username:{
+        type:String,
+        required:true
+    },
+    password:{
+        type:String,
+        required:true
     }
 });
+personSchema.pre('save',async function(next){
+    const person = this;
+
+    //password is hashed when its new record or have been changing
+    if(!person.isModified('password')) return next();
+    try{
+        //salt password generation
+        const salt = await bcrypt.genSalt(10);
+
+        //hash password
+        const hashedPassword = await bcrypt.hash(person.password, salt);
+
+        //overirde oldpass to hash pass
+        person.password = hashedPassword;
+
+        next();
+    }catch(err){
+        return next(err);
+    }
+})
+
+personSchema.methods.comparePassword = async function(candidatePassword){
+    try{
+        const isMatch = await bcrypt.compare(candidatePassword, this.password);
+        return isMatch;
+    }catch(err){
+        throw err;
+    }
+}
 
 const Person = mongoose.model('Person',personSchema);
 module.exports = Person;
